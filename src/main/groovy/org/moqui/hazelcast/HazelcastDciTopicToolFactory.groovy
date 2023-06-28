@@ -25,6 +25,7 @@ import org.moqui.context.ToolFactory
 import org.moqui.impl.context.ExecutionContextFactoryImpl
 import org.moqui.impl.context.ExecutionContextImpl
 import org.moqui.impl.entity.EntityCache.EntityCacheInvalidate
+import org.moqui.impl.entity.EntityFacadeImpl
 import org.moqui.util.SimpleTopic
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -122,9 +123,14 @@ class HazelcastDciTopicToolFactory implements ToolFactory<SimpleTopic<EntityCach
                 return
             }
             EntityCacheInvalidate eci = message.getMessageObject()
+            if (eci.tenantId == null) {
+                logger.warn("Received EntityCacheInvalidate message with null tenantId, ignoring")
+                return
+            }
             // logger.error("====== HazelcastDciTopic message isCreate=${eci.isCreate}, evb: ${eci.evb?.toString()}")
-            ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, {
-                ecfi.entityFacade.getEntityCache().clearCacheForValueActual(eci.evb, eci.isCreate)
+            ExecutionContextImpl.ThreadPoolRunnable runnable = new ExecutionContextImpl.ThreadPoolRunnable(ecfi, eci.tenantId {
+                EntityFacadeImpl efi = ecfi.getEntityFacade(eci.tenantId)
+                efi.getEntityCache().clearCacheForValueActual(eci.evb, eci.isCreate)
             })
             ecfi.workerPool.execute(runnable)
 
