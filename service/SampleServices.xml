@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<services xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/service-definition-2.1.xsd">
+    <service verb="get" noun="LocalExecutorStats">
+        <in-parameters></in-parameters>
+        <out-parameters>
+            <parameter name="cancelledTaskCount" type="long"/>
+            <parameter name="completedTaskCount" type="long"/>
+            <parameter name="pendingTaskCount" type="long"/>
+            <parameter name="startedTaskCount" type="long"/>
+            <parameter name="totalExecutionLatency" type="long"/>
+            <parameter name="totalStartLatency" type="long" />
+        </out-parameters>
+        <actions>
+            <set field="hzToolFactory" from="ec.factory.getToolFactory('Hazelcast')"/>
+            <set field="hazelcastInstance" from="hzToolFactory?.getInstance()"/>
+            <if condition="hazelcastInstance == null"><return error="true" message="Hazelcast Instance not found"/></if>
+            <set field="hzExecutorToolFactory" from="ec.factory.getToolFactory('HazelcastExecutor')"/>
+            <set field="hzExecutor" from="hzExecutorToolFactory.getInstance()"/>
+            <set field="hzExecutorStats" from="hzExecutor.getLocalExecutorStats()"/>
+            <set field="executorStats" from="[:]"/>
+            <set field="dciStats" from="[:]"/>
+            <set field="cluster" from="hazelcastInstance.getCluster()"/>
+            <set field="clusterState" from="cluster.getClusterState()"/>
+            <set field="hzDciToolFactory" from="ec.factory.getToolFactory('HazelcastDciTopic')"/>
+<!--            <set field="cancelledTaskCount" from="hzExecutorStats.getCancelledTaskCount()"/>-->
+<!--            <set field="completedTaskCount" from="hzExecutorStats.getCompletedTaskCount()"/>-->
+<!--            <set field="pendingTaskCount" from="hzExecutorStats.getPendingTaskCount()"/>-->
+<!--            <set field="startedTaskCount" from="hzExecutorStats.getStartedTaskCount()"/>-->
+<!--            <set field="totalExecutionLatency" from="hzExecutorStats.getTotalExecutionLatency()"/>-->
+<!--            <set field="totalStartLatency" from="hzExecutorStats.getTotalStartLatency()"/>-->
+            <script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            ec.logger.info("=====================================Initializing docker container for "+ec.tenantId+" latest code it is working or not============")
+               
+      
+                        import org.moqui.impl.service.ServiceCallAsyncImpl.AsyncServiceCallable
+                        import com.hazelcast.cluster.Member
+                        import java.util.concurrent.Future
+                        import java.util.concurrent.Callable
+                        import org.moqui.impl.service.ServiceFacadeImpl
+
+
+                        
+
+                        def clusterMembers = cluster.getMembers()
+                        for ( Member member : clusterMembers ) {
+                            logger.info( "=========isLocalMember " + member.localMember() )
+                            logger.info( "=========member.socketaddress " + member.getSocketAddress() )
+
+                            AsyncServiceCallable callable = new AsyncServiceCallable(ec, "SampleServices.get#LocalExecutorStats1", [:])
+
+                            Future<Object> future = hzExecutor.submitToMember(callable, member)
+
+                            def distResults =  future.get()
+                            executorStats[member.getUuid()] = distResults
+
+                            Future<Object> pcifuture = hzExecutor.submitToMember(callable, member)
+
+                            callable = new AsyncServiceCallable(ec, "SampleServices.get#EntityCacheDciStats", [:])
+
+                            Future<Object> dciFuture = hzExecutor.submitToMember(callable, member)
+
+                            def dciResults =  dciFuture.get()
+                            dciStats[member.getUuid()] = dciResults
+                          }
+                        
+        
+
+
+        ]]></script>
+        </actions>
+
+
+    </service>
+
+    <service verb="get" noun="StandaloneHazelcastServiceExec">
+        <in-parameters></in-parameters>
+        <out-parameters>
+        </out-parameters>
+        <actions>
+            <script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            import java.util.concurrent.Future
+            ec.logger.info("=====================================Initializing docker container for "+ec.tenantId+" latest code it is working or not============")
+            //From this Point we are saying it to call This Service by using Hazelcast-Executor on a Instnace
+            Future<Map> dbFuture = ec.service.async().distribute(true).name("SampleServices.get#LocalExecutorStats").callFuture()
+            ec.logger.info("===============${dbFuture}========here=======================")
+            ]]></script>
+        </actions>
+
+
+    </service>
+
+    <service verb="get" noun="LocalExecutorStats1">
+        <in-parameters></in-parameters>
+        <out-parameters>
+            <parameter name="cancelledTaskCount" type="long"/>
+            <parameter name="completedTaskCount" type="long"/>
+            <parameter name="pendingTaskCount" type="long"/>
+            <parameter name="startedTaskCount" type="long"/>
+            <parameter name="totalExecutionLatency" type="long"/>
+            <parameter name="totalStartLatency" type="long" />
+        </out-parameters>
+        <actions>
+            <set field="hzToolFactory" from="ec.factory.getToolFactory('Hazelcast')"/>
+            <set field="hazelcastInstance" from="hzToolFactory?.getInstance()"/>
+            <if condition="hazelcastInstance == null"><return error="true" message="Hazelcast Instance not found"/></if>
+            <set field="hzExecutorToolFactory" from="ec.factory.getToolFactory('HazelcastExecutor')"/>
+            <set field="hzExecutor" from="hzExecutorToolFactory.getInstance()"/>
+            <set field="hzExecutorStats" from="hzExecutor.getLocalExecutorStats()"/>
+            <set field="cancelledTaskCount" from="hzExecutorStats.getCancelledTaskCount()"/>
+            <set field="completedTaskCount" from="hzExecutorStats.getCompletedTaskCount()"/>
+            <set field="pendingTaskCount" from="hzExecutorStats.getPendingTaskCount()"/>
+            <set field="startedTaskCount" from="hzExecutorStats.getStartedTaskCount()"/>
+            <set field="totalExecutionLatency" from="hzExecutorStats.getTotalExecutionLatency()"/>
+            <set field="totalStartLatency" from="hzExecutorStats.getTotalStartLatency()"/>
+            <script><![CDATA[
+            import org.moqui.context.ExecutionContext
+            ec.logger.info("=====================================Initializing docker container for "+ec.tenantId+" 2.o.o check runnig in all or not latest code it is working or not============")
+        ]]></script>
+        </actions>
+
+
+    </service>
+
+    <service verb="get" noun="EntityCacheDciStats">
+        <in-parameters></in-parameters>
+        <out-parameters>
+            <parameter name="dciPublished"/>
+            <parameter name="lastPublishedTime"/>
+            <parameter name="dciReceived"/>
+            <parameter name="lastReceivedTime"/>
+        </out-parameters>
+        <actions>
+            <set field="hzToolFactory" from="ec.factory.getToolFactory('Hazelcast')"/>
+            <set field="hazelcastInstance" from="hzToolFactory?.getInstance()"/>
+            <if condition="hazelcastInstance == null"><return error="true" message="Hazelcast Instance not found"/></if>
+            <set field="hzDciToolFactory" from="ec.factory.getToolFactory('HazelcastDciTopic')"/>
+            <set field="dciPublished" from="hzDciToolFactory?.getDciPublished()"/>
+            <set field="lastPublishedTime" from="hzDciToolFactory?.getLastPublishTime()"/>
+            <set field="dciReceived" from="hzDciToolFactory?.getDciReceived()"/>
+            <set field="lastReceivedtime" from="hzDciToolFactory?.getLastReceiveTime()"/>
+
+        </actions>
+    </service>
+</services>
