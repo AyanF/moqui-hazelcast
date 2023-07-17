@@ -4,7 +4,7 @@
 
     <default-property name="hazelcast_group_name" value="moqui_h4"/>
 
-    <default-property name="hazelcast_multicast_enabled" value="false"/>
+    <default-property name="hazelcast_multicast_enabled" value="true"/>
     <default-property name="hazelcast_multicast_group" value="224.2.2.3"/>
     <default-property name="hazelcast_multicast_port" value="54327"/>
 
